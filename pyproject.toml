@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hsdeck"
+version = "0.1.0"
+description = "Constraint-driven Hearthstone deck construction with real deckstring encoding"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment",
+]
+dependencies = []
+
+[project.optional-dependencies]
+# Only needed to regenerate hsdeck/data/cards.json.gz from Blizzard's CardDefs.xml.
+carddb = ["hearthstone>=9", "hearthstone-data"]
+dev = ["pytest>=7", "hearthstone>=9"]
+
+[project.scripts]
+hsdeck = "hsdeck.cli:main"
+
+[tool.setuptools]
+packages = ["hsdeck"]
+
+[tool.setuptools.package-data]
+hsdeck = ["data/*.json.gz"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

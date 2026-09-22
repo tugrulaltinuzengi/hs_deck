@@ -1,0 +1,15 @@
+{
+  "class": "Priest",
+  "format": "Standard",
+  "deck_size": 20,
+  "required_cards": [
+    "Azalina",
+    "Karov",
+    "Reach the Equilibrium",
+    {"name": "Imbue priest cards", "quantity": 4},
+    {"name": "Specter Specialist", "quantity": 2}
+  ],
+  "primary_archetype": "Quest / Control / Survival",
+  "tactical_goal": "Survive early game aggro, dominate late game",
+  "target_winrate_bias": "Anti-Aggro / Value Engine"
+}
