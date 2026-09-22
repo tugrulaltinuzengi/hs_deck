@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from .carddb import Card, CardDB
 from .constraints import CardRequirement, DeckRequest, TagRequirement, infer_deck_size
 from .deck import CURVE_BUCKETS, Deck
+from .enums import class_label, format_label
 from .meta import MetaProvider, NullMetaProvider
 from .scoring import (
     ScoredCard,
@@ -84,9 +85,9 @@ def choose_curve_plan(*descriptions: str) -> CurvePlan:
 def suggest_deck_name(request: DeckRequest, deck_size: int) -> str:
     """A short deck name: leading archetype word, class, and odd deck sizes."""
     archetype = request.archetype.split("/")[0].strip()
-    name = f"{archetype} {request.card_class.name.title()}".strip()
+    name = f"{archetype} {class_label(request.card_class)}".strip()
     if not archetype:
-        name = f"Custom {request.card_class.name.title()}"
+        name = f"Custom {class_label(request.card_class)}"
     if deck_size != 30:
         name += f" ({deck_size}-Card)"
     return name
@@ -165,7 +166,7 @@ class DeckBuilder:
         if deck.size != deck_size:
             notes.append(
                 f"could only assemble {deck.size} of {deck_size} cards from the "
-                f"legal {card_class.name.title()} pool in {format.name.title()}"
+                f"legal {class_label(card_class)} pool in {format_label(format)}"
             )
 
         deck.notes = notes
@@ -204,13 +205,13 @@ class DeckBuilder:
                 continue
             if not card.playable_by(request.card_class):
                 notes.append(
-                    f"{card.name} is not playable by {request.card_class.name.title()} "
+                    f"{card.name} is not playable by {class_label(request.card_class)} "
                     "- skipped"
                 )
                 continue
             if not card.legal_in(request.format):
                 notes.append(
-                    f"{card.name} is not legal in {request.format.name.title()} "
+                    f"{card.name} is not legal in {format_label(request.format)} "
                     "but was explicitly required - kept, deck will not be tournament legal"
                 )
             if card.dbf in seen:
@@ -279,11 +280,11 @@ class DeckBuilder:
             remaining -= count
 
         if remaining > 0:
-            scope = f"{request.card_class.name.title()} " if requirement.class_only else ""
+            scope = f"{class_label(request.card_class)} " if requirement.class_only else ""
             return picks, (
                 f"only {requirement.quantity - remaining} of {requirement.quantity} "
                 f"{scope}cards tagged {requirement.tag} exist in "
-                f"{request.format.name.title()} - filled what was available"
+                f"{format_label(request.format)} - filled what was available"
             )
         return picks, ""
 

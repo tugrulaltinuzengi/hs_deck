@@ -5,7 +5,7 @@ from __future__ import annotations
 from .builder import BuildResult
 from .carddb import CardDB
 from .deck import CURVE_BUCKETS, Deck
-from .enums import CardType
+from .enums import CardType, class_label, format_label
 from .scoring import card_roles
 from .validate import ValidationReport, validate
 
@@ -21,8 +21,8 @@ def deck_code_block(deck: Deck, title: str = "") -> str:
     """The comment-wrapped block the Hearthstone client reads from a clipboard."""
     lines = [
         f"### {title or deck.name}",
-        f"# Class: {deck.card_class.name.title()}",
-        f"# Format: {deck.format.name.title()}",
+        f"# Class: {class_label(deck.card_class)}",
+        f"# Format: {format_label(deck.format)}",
         "#",
     ]
     for slot in deck.sorted_slots():
@@ -58,13 +58,13 @@ def render_markdown(result: BuildResult, db: CardDB, report: ValidationReport | 
     targets = result.curve_plan.targets(result.deck_size)
 
     out: list[str] = []
-    title = deck.name or f"{deck.card_class.name.title()} Deck"
+    title = deck.name or f"{class_label(deck.card_class)} Deck"
     out.append(f"### {title}")
     out.append("")
-    out.append(f"**Class:** {deck.card_class.name.title()}  ")
+    out.append(f"**Class:** {class_label(deck.card_class)}  ")
     if deck.archetype:
         out.append(f"**Archetype:** {deck.archetype}  ")
-    out.append(f"**Format:** {deck.format.name.title()}  ")
+    out.append(f"**Format:** {format_label(deck.format)}  ")
     out.append(f"**Deck Size:** {deck.size} cards  ")
     out.append(f"**Primary Strategy:** {result.request.tactical_goal or deck.archetype or 'n/a'}  ")
     out.append(f"**Curve Plan:** {result.curve_plan.name}  ")

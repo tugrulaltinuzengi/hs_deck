@@ -75,7 +75,7 @@ def test_deckstring_round_trips(case_study, db: CardDB):
     rebuilt = deck_from_deckstring(case_study.deck.deckstring(), db)
     assert rebuilt.entries() == case_study.deck.entries()
     assert rebuilt.card_class is CardClass.PRIEST
-    assert rebuilt.format is FormatType.STANDARD
+    assert rebuilt.format is FormatType.FT_STANDARD
 
 
 def test_build_is_deterministic(db: CardDB):
@@ -198,7 +198,7 @@ def test_meta_data_changes_the_picks(db: CardDB):
     baseline = build_deck(DeckRequest.from_dict({"class": "Shaman", "format": "Standard"}, db), db)
     outsider = next(
         card
-        for card in db.pool(CardClass.SHAMAN, FormatType.STANDARD)
+        for card in db.pool(CardClass.SHAMAN, FormatType.FT_STANDARD)
         if card.dbf not in {s.card.dbf for s in baseline.deck.slots}
     )
 

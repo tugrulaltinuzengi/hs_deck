@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from .carddb import CardDB, normalize_name
-from .enums import CardClass, FormatType
+from .enums import CardClass, FormatType, class_label, format_label, parse_class, parse_format
 
 # Words that mark a requirement as "a group of cards", not one specific card.
 _GROUP_MARKERS = {"cards", "card", "package", "pkg", "suite", "tools", "spells", "minions"}
@@ -66,7 +66,7 @@ class DeckRequest:
     """A fully parsed deck-building request."""
 
     card_class: CardClass
-    format: FormatType = FormatType.STANDARD
+    format: FormatType = FormatType.FT_STANDARD
     deck_size: int | None = None  # None -> inferred from required cards
     required: list[Requirement] = field(default_factory=list)
     banned: list[str] = field(default_factory=list)
@@ -79,8 +79,8 @@ class DeckRequest:
     def from_dict(cls, payload: dict[str, Any], db: CardDB) -> "DeckRequest":
         if "class" not in payload:
             raise ValueError("deck request must specify a 'class'")
-        card_class = CardClass.parse(payload["class"])
-        format = FormatType.parse(payload.get("format", "Standard"))
+        card_class = parse_class(payload["class"])
+        format = parse_format(payload.get("format", "Standard"))
 
         notes: list[str] = []
         required: list[Requirement] = []
@@ -114,7 +114,7 @@ class DeckRequest:
         return cls.from_dict(json.loads(text), db)
 
     def describe(self) -> str:
-        parts = [f"{self.card_class.name.title()} / {self.format.name.title()}"]
+        parts = [f"{class_label(self.card_class)} / {format_label(self.format)}"]
         if self.deck_size:
             parts.append(f"{self.deck_size} cards")
         if self.archetype:
@@ -190,7 +190,7 @@ def _as_tag_requirement(
             return (
                 TagRequirement(candidate, quantity, class_only, name),
                 f"{name!r} read as {quantity} cards tagged {candidate}"
-                + (f" ({card_class.name.title()} only)" if class_only else ""),
+                + (f" ({class_label(card_class)} only)" if class_only else ""),
             )
     return None, ""
 

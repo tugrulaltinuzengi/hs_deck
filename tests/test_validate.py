@@ -6,7 +6,7 @@ from hsdeck.enums import CardClass, FormatType
 from hsdeck.validate import validate
 
 
-def make_deck(db: CardDB, card_class=CardClass.PRIEST, format=FormatType.STANDARD) -> Deck:
+def make_deck(db: CardDB, card_class=CardClass.PRIEST, format=FormatType.FT_STANDARD) -> Deck:
     return Deck(
         card_class=card_class,
         format=format,
@@ -74,7 +74,7 @@ def test_rotated_card_is_illegal_in_standard(db: CardDB):
     report = validate(deck, db)
     assert any("not legal in Standard" in str(i) for i in report.errors)
 
-    deck.format = FormatType.WILD
+    deck.format = FormatType.FT_WILD
     assert not any("not legal" in str(i) for i in validate(deck, db).errors)
 
 
@@ -82,7 +82,7 @@ def test_two_quests_is_an_error(db: CardDB):
     deck = make_deck(db)
     quests = [
         c
-        for c in db.pool(CardClass.PRIEST, FormatType.STANDARD)
+        for c in db.pool(CardClass.PRIEST, FormatType.FT_STANDARD)
         if c.has_tag("QUEST") or c.has_tag("QUESTLINE")
     ][:2]
     if len(quests) < 2:
@@ -96,14 +96,14 @@ def test_two_quests_is_an_error(db: CardDB):
 def test_two_deck_size_modifiers_is_an_error(db: CardDB):
     deck = make_deck(db)
     deck.add(db.resolve("Azalina Soulsever").card, 1)
-    deck.add(db.resolve("Prince Renathal", format=FormatType.STANDARD).card, 1)
+    deck.add(db.resolve("Prince Renathal", format=FormatType.FT_STANDARD).card, 1)
     fill(db, deck, 20)
     assert any("set the deck size" in str(i) for i in validate(deck, db).errors)
 
 
 def test_missing_early_game_is_a_warning_not_an_error(db: CardDB):
     deck = make_deck(db)
-    expensive = [c for c in db.pool(CardClass.PRIEST, FormatType.STANDARD) if c.cost >= 5]
+    expensive = [c for c in db.pool(CardClass.PRIEST, FormatType.FT_STANDARD) if c.cost >= 5]
     for card in expensive:
         if deck.size >= 30:
             break

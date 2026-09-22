@@ -16,18 +16,28 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-# Only needed to regenerate hsdeck/data/cards.json.gz from Blizzard's CardDefs.xml.
-carddb = ["hearthstone>=9", "hearthstone-data"]
-dev = ["pytest>=7", "hearthstone>=9"]
+# Blizzard's CardDefs.xml, only needed to regenerate hsdeck/data/cards.json.gz.
+# The parser itself is vendored, so no code dependency is required.
+carddb = ["hearthstone-data"]
+# `hearthstone` is not needed to run hsdeck; the dev extra installs it only so
+# tests/test_vendor.py can check the vendored tree against the release.
+dev = ["pytest>=7", "hearthstone==9.21.0"]
 
 [project.scripts]
 hsdeck = "hsdeck.cli:main"
 
 [tool.setuptools]
-packages = ["hsdeck"]
+packages = [
+    "hsdeck",
+    "hsdeck._vendor",
+    "hsdeck._vendor.hearthstone",
+    "hsdeck._vendor.hearthstone.utils",
+]
 
 [tool.setuptools.package-data]
 hsdeck = ["data/*.json.gz"]
+"hsdeck._vendor" = ["README.md"]
+"hsdeck._vendor.hearthstone" = ["LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

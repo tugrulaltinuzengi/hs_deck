@@ -12,7 +12,7 @@ from .carddb import CardDB
 from .constraints import DeckRequest
 from .decklist import deck_from_deckstring, parse_decklist
 from .deckstring import DeckstringError
-from .enums import CardClass, FormatType
+from .enums import CardClass, class_label, parse_class, parse_format
 from .meta import JsonMetaProvider, MetaProvider
 from .render import deck_code_block, render_markdown
 from .validate import validate
@@ -131,7 +131,7 @@ def cmd_encode(args: argparse.Namespace) -> int:
     text = Path(args.file).read_text(encoding="utf-8") if args.file != "-" else sys.stdin.read()
     deck = parse_decklist(text, db)
     if args.format:
-        deck.format = FormatType.parse(args.format)
+        deck.format = parse_format(args.format)
     print(deck.deckstring())
     report = validate(deck, db)
     for issue in report.issues:
@@ -143,13 +143,13 @@ def cmd_search(args: argparse.Namespace) -> int:
     db = _load_db(args)
     cards = db.search(
         args.text or "",
-        card_class=CardClass.parse(args.card_class) if args.card_class else None,
-        format=FormatType.parse(args.format) if args.format else None,
+        card_class=parse_class(args.card_class) if args.card_class else None,
+        format=parse_format(args.format) if args.format else None,
         tag=args.tag,
         max_cost=args.max_cost,
     )
     for card in cards[: args.limit]:
-        classes = "/".join(CardClass(c).name.title() for c in card.classes)
+        classes = "/".join(class_label(CardClass(c)) for c in card.classes)
         flag = "S" if card.standard else "W"
         print(f"{card.dbf:>7}  [{flag}] ({card.cost}) {card.name} - {classes}")
         if args.verbose and card.plain_text:

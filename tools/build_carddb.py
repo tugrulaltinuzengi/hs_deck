@@ -20,23 +20,12 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
 
-try:
-    from hearthstone import cardxml
-    from hearthstone.enums import CardClass, CardSet, CardType, GameTag, ZodiacYear
-    from hearthstone.utils import CARDCLASS_HERO_MAP
-except ImportError:  # pragma: no cover - build-time only
-    sys.exit(
-        "tools/build_carddb.py needs the 'hearthstone' package:\n"
-        "    pip install hearthstone hearthstone-data"
-    )
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# Card types that can legally sit in a constructed deck list.
-PLAYABLE_TYPES = {
-    int(CardType.MINION),
-    int(CardType.SPELL),
-    int(CardType.WEAPON),
-    int(CardType.LOCATION),
-}
+from hsdeck._vendor.hearthstone import cardxml  # noqa: E402
+from hsdeck._vendor.hearthstone.enums import CardClass, CardType, GameTag  # noqa: E402
+from hsdeck._vendor.hearthstone.utils import CARDCLASS_HERO_MAP  # noqa: E402
+from hsdeck.enums import PLAYABLE_TYPES  # noqa: E402
 
 # Tags that are pure presentation/bookkeeping noise for deck building.
 TAG_BLOCKLIST = {
@@ -110,12 +99,12 @@ def build(carddefs: str | None, locale: str = "enUS") -> dict:
     deck_size_modifiers: dict[str, int] = {}
     for card in db.values():
         size = DECK_SIZE_MODIFIER_CARDS.get(card.name)
-        if size and card.collectible and int(card.type) in PLAYABLE_TYPES:
+        if size and card.collectible and card.type in PLAYABLE_TYPES:
             deck_size_modifiers[str(int(card.dbf_id))] = size
 
     cards = []
     for card in db.values():
-        if not card.collectible or int(card.type) not in PLAYABLE_TYPES:
+        if not card.collectible or card.type not in PLAYABLE_TYPES:
             continue
         record = {
             "dbf": int(card.dbf_id),
@@ -126,7 +115,6 @@ def build(carddefs: str | None, locale: str = "enUS") -> dict:
             "type": int(card.type),
             "rarity": int(card.rarity or 0),
             "set": int(card.card_set),
-            "std": bool(card.card_set.is_standard),
             "text": (card.description or "").strip(),
             "tags": _tag_names(card),
         }
@@ -143,15 +131,13 @@ def build(carddefs: str | None, locale: str = "enUS") -> dict:
 
     cards.sort(key=lambda c: c["dbf"])
 
+    # Format legality is NOT baked in: CardDB derives it at runtime from the
+    # vendored rotation table, so a rotation needs no database rebuild.
     return {
-        "schema": 1,
+        "schema": 2,
         "game_build": _game_build(carddefs),
         "generated": date.today().isoformat(),
         "locale": locale,
-        "zodiac_year": ZodiacYear.as_of_date().name,
-        "standard_sets": sorted(
-            {CardSet(c["set"]).name for c in cards if c["std"]}
-        ),
         "heroes": heroes,
         "deck_size_modifiers": deck_size_modifiers,
         "cards": cards,

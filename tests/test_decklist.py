@@ -25,7 +25,7 @@ def test_parses_a_clipboard_block(db: CardDB):
     deck = parse_decklist(CLIPBOARD, db)
     assert deck.name == "Quest Priest (20-Card)"
     assert deck.card_class is CardClass.PRIEST
-    assert deck.format is FormatType.STANDARD
+    assert deck.format is FormatType.FT_STANDARD
     assert deck.size == 5
     assert deck.count_of(db.resolve("Specter Specialist").card) == 2
 
@@ -63,4 +63,4 @@ def test_deckstring_round_trip_recovers_names_and_format(db: CardDB):
     rebuilt = deck_from_deckstring(original.deckstring(), db)
     assert rebuilt.entries() == original.entries()
     assert rebuilt.card_class is CardClass.PRIEST
-    assert rebuilt.format is FormatType.STANDARD
+    assert rebuilt.format is FormatType.FT_STANDARD

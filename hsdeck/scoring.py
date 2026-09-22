@@ -14,8 +14,16 @@ from dataclasses import dataclass, field
 from typing import Iterable
 
 from .carddb import Card
-from .enums import CardClass, CardType, Rarity
-from .spellschools import RACES, SCHOOL_BY_NAME, SPELL_SCHOOLS, WILDCARD_RACE
+from .enums import (
+    RACE_BY_NAME,
+    SCHOOL_BY_NAME,
+    WILDCARD_RACE,
+    CardClass,
+    CardType,
+    Rarity,
+    race_label,
+    school_label,
+)
 
 # --- role detection -------------------------------------------------------
 
@@ -201,8 +209,8 @@ class SynergyProfile:
             for school_name, school_id in SCHOOL_BY_NAME.items():
                 if re.search(rf"\b{school_name}\b", text):
                     profile.schools.add(school_id)
-            for race_id, race_name in RACES.items():
-                if re.search(rf"\b{race_name.lower()}s?\b", text):
+            for race_name, race_id in RACE_BY_NAME.items():
+                if re.search(rf"\b{race_name}s?\b", text):
                     profile.races.add(race_id)
             if re.search(r"\b(cast|spells?)\b", text):
                 profile.wants_spells = True
@@ -236,11 +244,9 @@ class SynergyProfile:
         if self.tags:
             bits.append("tags: " + ", ".join(sorted(self.tags)[:8]))
         if self.schools:
-            bits.append("schools: " + ", ".join(SPELL_SCHOOLS[s] for s in sorted(self.schools)))
+            bits.append("schools: " + ", ".join(school_label(s) for s in sorted(self.schools)))
         if self.races:
-            bits.append(
-                "tribes: " + ", ".join(RACES.get(r, str(r)) for r in sorted(self.races))
-            )
+            bits.append("tribes: " + ", ".join(race_label(r) for r in sorted(self.races)))
         return "; ".join(bits) or "no specific synergy axis"
 
 

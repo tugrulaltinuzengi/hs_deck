@@ -21,7 +21,7 @@ import re
 from .carddb import CardDB
 from .deck import Deck
 from .deckstring import ParsedDeck, parse_deckstring
-from .enums import CardClass, FormatType
+from .enums import CardClass, FormatType, class_label, parse_class, parse_format
 
 _LINE = re.compile(
     r"^\s*#?\s*(?P<count>\d+)\s*[x*]?\s*(?:\((?P<cost>\d+)\)\s*)?(?P<name>.+?)\s*$"
@@ -38,7 +38,7 @@ class DecklistError(ValueError):
 def parse_decklist(text: str, db: CardDB) -> Deck:
     """Build a Deck from a text decklist, inferring the class if not stated."""
     card_class: CardClass | None = None
-    format = FormatType.STANDARD
+    format = FormatType.FT_STANDARD
     title = ""
     entries: list[tuple[int, str]] = []
 
@@ -51,10 +51,10 @@ def parse_decklist(text: str, db: CardDB) -> Deck:
             title = match.group("value")
             continue
         if match := _CLASS.match(line):
-            card_class = CardClass.parse(match.group("value"))
+            card_class = parse_class(match.group("value"))
             continue
         if match := _FORMAT.match(line):
-            format = FormatType.parse(match.group("value"))
+            format = parse_format(match.group("value"))
             continue
         if line.lstrip().startswith("#") and ":" in line and not _LINE.match(line):
             continue  # some other comment header
@@ -88,7 +88,7 @@ def parse_decklist(text: str, db: CardDB) -> Deck:
         card_class=card_class,
         format=format,
         hero_dbf=db.hero_dbf(card_class),
-        name=title or f"{card_class.name.title()} Deck",
+        name=title or f"{class_label(card_class)} Deck",
     )
     for count, card in resolved:
         deck.add(card, count)
@@ -124,7 +124,7 @@ def deck_from_deckstring(deckstring: str, db: CardDB, name: str = "") -> Deck:
         card_class=card_class,
         format=parsed.format,
         hero_dbf=hero_dbf,
-        name=name or f"{card_class.name.title()} Deck",
+        name=name or f"{class_label(card_class)} Deck",
     )
     for dbf, count in parsed.cards:
         card = db.by_dbf(dbf)

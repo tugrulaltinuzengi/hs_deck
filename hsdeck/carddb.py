@@ -11,7 +11,17 @@ from functools import cached_property
 from pathlib import Path
 from typing import Iterator, Sequence
 
-from .enums import CardClass, CardType, FormatType, Rarity, max_copies
+from .enums import (
+    CardClass,
+    CardSet,
+    CardType,
+    FormatType,
+    Rarity,
+    ZodiacYear,
+    is_standard,
+    max_copies,
+    standard_sets,
+)
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent / "data" / "cards.json.gz"
 
@@ -44,7 +54,6 @@ class Card:
     type: int
     rarity: int
     card_set: int
-    standard: bool
     text: str
     tags: frozenset[str]
     attack: int = 0
@@ -63,7 +72,6 @@ class Card:
             type=record["type"],
             rarity=record["rarity"],
             card_set=record["set"],
-            standard=record["std"],
             text=record.get("text", ""),
             tags=frozenset(record.get("tags", ())),
             attack=record.get("atk", 0),
@@ -75,6 +83,22 @@ class Card:
     @cached_property
     def plain_text(self) -> str:
         return clean_text(self.text)
+
+    @property
+    def standard(self) -> bool:
+        """Whether the card's set is in the current Standard rotation.
+
+        Read from the vendored rotation table at call time, so refreshing
+        ``hsdeck/_vendor`` rotates the format without a card database rebuild.
+        """
+        return is_standard(self.card_set)
+
+    @property
+    def set_name(self) -> str:
+        try:
+            return CardSet(self.card_set).name
+        except ValueError:
+            return str(self.card_set)
 
     @property
     def is_neutral(self) -> bool:
@@ -95,7 +119,7 @@ class Card:
         # Wild is the superset of everything collectible; Standard is the
         # rotating subset.  Classic/Twist run their own curated pools which
         # CardDefs.xml does not describe, so they are treated as Wild here.
-        if format == FormatType.STANDARD:
+        if format == FormatType.FT_STANDARD:
             return self.standard
         return True
 
@@ -134,8 +158,6 @@ class CardDB:
         self.schema = payload.get("schema", 1)
         self.game_build = str(payload.get("game_build", ""))
         self.generated = payload.get("generated", "")
-        self.zodiac_year = payload.get("zodiac_year", "")
-        self.standard_sets = tuple(payload.get("standard_sets", ()))
         self.heroes = {k: int(v) for k, v in payload.get("heroes", {}).items()}
         self.deck_size_modifiers = {
             int(k): int(v) for k, v in payload.get("deck_size_modifiers", {}).items()
@@ -170,6 +192,15 @@ class CardDB:
     def __iter__(self) -> Iterator[Card]:
         return iter(self._cards)
 
+    @property
+    def zodiac_year(self) -> str:
+        """The rotation year the vendored tables describe."""
+        return ZodiacYear.SCARAB.name
+
+    @property
+    def standard_sets(self) -> tuple[str, ...]:
+        return tuple(standard_sets())
+
     @cached_property
     def tag_vocabulary(self) -> frozenset[str]:
         """Every mechanic tag name that appears on a collectible card."""
@@ -190,7 +221,7 @@ class CardDB:
     def pool(
         self,
         card_class: CardClass,
-        format: FormatType = FormatType.STANDARD,
+        format: FormatType = FormatType.FT_STANDARD,
         *,
         include_neutral: bool = True,
     ) -> list[Card]:

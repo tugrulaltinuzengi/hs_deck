@@ -1,96 +1,149 @@
-"""Game enums used by the deck builder.
+"""Game enums and vocabulary.
 
-Values mirror Blizzard's ``TAG_CLASS`` / ``TAG_CARDTYPE`` / ``TAG_RARITY`` and
-``PegasusShared.FormatType``.  Only the members hsdeck actually needs are kept.
+Every value here comes from HearthSim's ``python-hearthstone``, vendored under
+``hsdeck/_vendor``.  Blizzard's tag numbers, the Standard rotation, the hero
+portraits and the tribe list are upstream's to maintain; this module only adds
+the parsing and display helpers hsdeck needs on top.
 """
 
 from __future__ import annotations
 
-from enum import IntEnum
+from ._vendor.hearthstone.enums import (  # noqa: F401  (re-exported)
+    CardClass,
+    CardSet,
+    CardType,
+    FormatType,
+    GameTag,
+    Race,
+    Rarity,
+    SpellSchool,
+    ZodiacYear,
+)
+from ._vendor.hearthstone.utils import CARDRACE_TAG_MAP
 
-
-class CardClass(IntEnum):
-    INVALID = 0
-    DEATHKNIGHT = 1
-    DRUID = 2
-    HUNTER = 3
-    MAGE = 4
-    PALADIN = 5
-    PRIEST = 6
-    ROGUE = 7
-    SHAMAN = 8
-    WARLOCK = 9
-    WARRIOR = 10
-    DREAM = 11
-    NEUTRAL = 12
-    WHIZBANG = 13
-    DEMONHUNTER = 14
-
-    @classmethod
-    def parse(cls, value: "str | int | CardClass") -> "CardClass":
-        if isinstance(value, cls):
-            return value
-        if isinstance(value, int):
-            return cls(value)
-        key = str(value).strip().upper().replace(" ", "").replace("-", "").replace("_", "")
-        aliases = {
-            "DEMONHUNTER": cls.DEMONHUNTER,
-            "DH": cls.DEMONHUNTER,
-            "DEATHKNIGHT": cls.DEATHKNIGHT,
-            "DK": cls.DEATHKNIGHT,
-        }
-        if key in aliases:
-            return aliases[key]
-        try:
-            return cls[key]
-        except KeyError as exc:
-            raise ValueError(f"unknown class: {value!r}") from exc
-
-
-class CardType(IntEnum):
-    MINION = 4
-    SPELL = 5
-    WEAPON = 7
-    LOCATION = 39
-
-
-class Rarity(IntEnum):
-    INVALID = 0
-    COMMON = 1
-    FREE = 2
-    RARE = 3
-    EPIC = 4
-    LEGENDARY = 5
-
-
-class FormatType(IntEnum):
-    UNKNOWN = 0
-    WILD = 1
-    STANDARD = 2
-    CLASSIC = 3
-    TWIST = 4
-
-    @classmethod
-    def parse(cls, value: "str | int | FormatType") -> "FormatType":
-        if isinstance(value, cls):
-            return value
-        if isinstance(value, int):
-            return cls(value)
-        key = str(value).strip().upper()
-        # "Custom" is not a client format - it is encoded as Standard and the
-        # deck is flagged as unimportable by the validator if it breaks a rule.
-        if key == "CUSTOM":
-            return cls.STANDARD
-        try:
-            return cls[key]
-        except KeyError as exc:
-            raise ValueError(f"unknown format: {value!r}") from exc
-
+# Card types that can sit in a constructed decklist.
+PLAYABLE_TYPES = frozenset(
+    {CardType.MINION, CardType.SPELL, CardType.WEAPON, CardType.LOCATION}
+)
 
 # Maximum copies of a single card allowed in a constructed deck.
 MAX_COPIES_DEFAULT = 2
 MAX_COPIES_LEGENDARY = 1
 
+_CLASS_ALIASES = {
+    "DH": CardClass.DEMONHUNTER,
+    "DK": CardClass.DEATHKNIGHT,
+}
+
+_FORMAT_ALIASES = {
+    "WILD": FormatType.FT_WILD,
+    "STANDARD": FormatType.FT_STANDARD,
+    "CLASSIC": FormatType.FT_CLASSIC,
+    "TWIST": FormatType.FT_TWIST,
+    # "Custom" is not a client format.  It encodes as Standard; if the deck
+    # then breaks a rule, the validator is what says so.
+    "CUSTOM": FormatType.FT_STANDARD,
+}
+
+# Tribes whose in-game name differs from the upstream enum name.
+_RACE_LABELS = {Race.MECHANICAL: "Mech"}
+
+
+def parse_class(value: str | int | CardClass) -> CardClass:
+    if isinstance(value, CardClass):
+        return value
+    if isinstance(value, int):
+        return CardClass(value)
+    key = "".join(ch for ch in str(value).upper() if ch.isalnum())
+    if key in _CLASS_ALIASES:
+        return _CLASS_ALIASES[key]
+    try:
+        return CardClass[key]
+    except KeyError as exc:
+        raise ValueError(f"unknown class: {value!r}") from exc
+
+
+def parse_format(value: str | int | FormatType) -> FormatType:
+    if isinstance(value, FormatType):
+        return value
+    if isinstance(value, int):
+        return FormatType(value)
+    key = str(value).strip().upper()
+    if key in _FORMAT_ALIASES:
+        return _FORMAT_ALIASES[key]
+    try:
+        return FormatType[key]  # accepts the upstream "FT_STANDARD" spelling
+    except KeyError as exc:
+        raise ValueError(f"unknown format: {value!r}") from exc
+
+
+def class_label(card_class: CardClass) -> str:
+    """'Demon Hunter', not 'DEMONHUNTER'."""
+    return {
+        CardClass.DEMONHUNTER: "Demon Hunter",
+        CardClass.DEATHKNIGHT: "Death Knight",
+    }.get(card_class, card_class.name.title())
+
+
+def format_label(format: FormatType) -> str:
+    """'Standard', not 'FT_STANDARD'."""
+    return format.name.removeprefix("FT_").title()
+
+
+def race_label(race: int) -> str:
+    try:
+        race = Race(race)
+    except ValueError:
+        return str(race)
+    return _RACE_LABELS.get(race, race.name.title())
+
+
+def school_label(school: int) -> str:
+    try:
+        return SpellSchool(school).name.title()
+    except ValueError:
+        return str(school)
+
 
 def max_copies(rarity: int) -> int:
     return MAX_COPIES_LEGENDARY if rarity == Rarity.LEGENDARY else MAX_COPIES_DEFAULT
+
+
+def is_standard(card_set: int) -> bool:
+    """Whether a set is in the current Standard rotation.
+
+    Evaluated at runtime from the vendored ``STANDARD_SETS`` table, so a
+    rotation is picked up by refreshing ``hsdeck/_vendor`` - the generated card
+    database does not have to be rebuilt.
+    """
+    try:
+        return CardSet(card_set).is_standard
+    except ValueError:
+        return False
+
+
+def standard_sets() -> list[str]:
+    return sorted(s.name for s in ZodiacYear.SCARAB.standard_card_sets)
+
+
+# The tribes that actually exist as a minion type, per upstream's tag map.
+PLAYABLE_RACES = tuple(
+    race for race, tag in CARDRACE_TAG_MAP.items() if tag is not None
+)
+
+# Spell schools a card can actually carry (the rest are Battlegrounds/other).
+PLAYABLE_SPELL_SCHOOLS = (
+    SpellSchool.ARCANE,
+    SpellSchool.FIRE,
+    SpellSchool.FROST,
+    SpellSchool.NATURE,
+    SpellSchool.HOLY,
+    SpellSchool.SHADOW,
+    SpellSchool.FEL,
+)
+
+SCHOOL_BY_NAME = {school_label(s).lower(): int(s) for s in PLAYABLE_SPELL_SCHOOLS}
+RACE_BY_NAME = {race_label(r).lower(): int(r) for r in PLAYABLE_RACES}
+
+# Race.ALL matches every tribal payoff, so it is not a synergy signal of its own.
+WILDCARD_RACE = int(Race.ALL)

@@ -30,7 +30,7 @@ def test_parses_the_specification_case_study(db: CardDB):
     request = DeckRequest.from_dict(CASE_STUDY, db)
 
     assert request.card_class is CardClass.PRIEST
-    assert request.format is FormatType.STANDARD
+    assert request.format is FormatType.FT_STANDARD
     assert request.deck_size == 20
 
     named = {r.name: r.quantity for r in request.required if isinstance(r, CardRequirement)}
@@ -97,7 +97,7 @@ def test_azalina_sets_the_deck_size_to_twenty(db: CardDB):
 
 
 def test_renathal_sets_the_deck_size_to_forty(db: CardDB):
-    renathal = db.resolve("Prince Renathal", format=FormatType.STANDARD).card
+    renathal = db.resolve("Prince Renathal", format=FormatType.FT_STANDARD).card
     assert infer_deck_size([renathal], db)[0] == 40
 
 

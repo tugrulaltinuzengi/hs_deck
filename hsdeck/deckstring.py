@@ -1,5 +1,14 @@
 """Hearthstone deckstring codec.
 
+The binary work is HearthSim's reference implementation, vendored at
+``hsdeck/_vendor/hearthstone/deckstrings.py``.  hsdeck deliberately does not
+reimplement it: a deckstring is only useful if the game client accepts it, and
+the reference encoder is what every Hearthstone deck site already agrees with.
+
+This module adds the things a caller needs around it — input validation before
+encoding, a single :class:`DeckstringError` instead of four unrelated exception
+types, and a :class:`ParsedDeck` result object.
+
 Binary layout (version 1), all integers unsigned LEB128 varints:
 
     0x00                      reserved byte
@@ -7,11 +16,11 @@ Binary layout (version 1), all integers unsigned LEB128 varints:
     varint  format            FormatType (1=Wild, 2=Standard, 3=Classic, 4=Twist)
     varint  hero_count        always 1
     varint* hero_dbf_ids      ascending
-    varint  n1                number of distinct cards played as 1 copy
+    varint  n1                cards played as exactly 1 copy
     varint* dbf_ids           ascending
-    varint  n2                number of distinct cards played as 2 copies
+    varint  n2                cards played as exactly 2 copies
     varint* dbf_ids           ascending
-    varint  nN                number of distinct cards played as 3+ copies
+    varint  nN                cards played as 3+ copies
     (varint dbf_id, varint count)*
     0x00 | 0x01               sideboard marker
     <sideboard block>         present only when the marker is 0x01
@@ -26,13 +35,12 @@ from __future__ import annotations
 import base64
 import binascii
 from dataclasses import dataclass, field
-from io import BytesIO
-from typing import Iterable, Sequence
+from typing import Sequence
 
-from .enums import FormatType
-from .varint import read_varint, write_varint
+from ._vendor.hearthstone import deckstrings as _reference
+from .enums import FormatType, parse_format
 
-DECKSTRING_VERSION = 1
+DECKSTRING_VERSION = _reference.DECKSTRING_VERSION
 
 CardCounts = Sequence[tuple[int, int]]
 SideboardCounts = Sequence[tuple[int, int, int]]
@@ -48,7 +56,7 @@ class ParsedDeck:
 
     cards: list[tuple[int, int]] = field(default_factory=list)
     heroes: list[int] = field(default_factory=list)
-    format: FormatType = FormatType.UNKNOWN
+    format: FormatType = FormatType.FT_UNKNOWN
     sideboards: list[tuple[int, int, int]] = field(default_factory=list)
 
     @property
@@ -59,126 +67,76 @@ class ParsedDeck:
         return write_deckstring(self.cards, self.heroes, self.format, self.sideboards)
 
 
-def _trisort(entries: Iterable[tuple]) -> tuple[list[tuple], list[tuple], list[tuple]]:
-    """Split entries into the 1-copy, 2-copy and n-copy groups."""
-    ones: list[tuple] = []
-    twos: list[tuple] = []
-    many: list[tuple] = []
-    for entry in entries:
-        count = entry[1]
-        if count < 1:
-            raise DeckstringError(f"card count must be positive, got {count}")
-        bucket = ones if count == 1 else twos if count == 2 else many
-        bucket.append(entry)
-    return ones, twos, many
+def _check_dbf(value: int, what: str) -> int:
+    # The reference encoder writes unsigned varints and would loop forever on a
+    # negative, so bad input is rejected here rather than passed through.
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise DeckstringError(f"{what} must be a non-negative integer, got {value!r}")
+    return value
+
+
+def _check_count(value: int, dbf_id: int) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise DeckstringError(
+            f"card count for DBF id {dbf_id} must be positive, got {value!r}"
+        )
+    return value
 
 
 def write_deckstring(
     cards: CardCounts,
     heroes: Sequence[int],
-    format: FormatType | int | str = FormatType.STANDARD,
+    format: FormatType | int | str = FormatType.FT_STANDARD,
     sideboards: SideboardCounts | None = None,
 ) -> str:
     """Encode (dbf_id, count) pairs into a deckstring the client can import."""
-    format = FormatType.parse(format)
-    sideboards = list(sideboards or [])
+    format = parse_format(format)
 
     if len(heroes) != 1:
         raise DeckstringError(f"expected exactly 1 hero, got {len(heroes)}")
+    heroes = [_check_dbf(hero, "hero DBF id") for hero in heroes]
 
     merged: dict[int, int] = {}
     for dbf_id, count in cards:
-        merged[dbf_id] = merged.get(dbf_id, 0) + count
+        _check_dbf(dbf_id, "card DBF id")
+        merged[dbf_id] = merged.get(dbf_id, 0) + _check_count(count, dbf_id)
 
-    data = BytesIO()
-    data.write(b"\0")
-    write_varint(data, DECKSTRING_VERSION)
-    write_varint(data, int(format))
+    checked_sideboards = []
+    for dbf_id, count, owner in sideboards or ():
+        _check_dbf(dbf_id, "sideboard card DBF id")
+        _check_dbf(owner, "sideboard owner DBF id")
+        checked_sideboards.append((dbf_id, _check_count(count, dbf_id), owner))
 
-    write_varint(data, len(heroes))
-    for hero in sorted(heroes):
-        write_varint(data, hero)
-
-    ones, twos, many = _trisort(sorted(merged.items()))
-    for group in (ones, twos):
-        write_varint(data, len(group))
-        for dbf_id, _ in group:
-            write_varint(data, dbf_id)
-
-    write_varint(data, len(many))
-    for dbf_id, count in many:
-        write_varint(data, dbf_id)
-        write_varint(data, count)
-
-    if sideboards:
-        data.write(b"\1")
-        sb_ones, sb_twos, sb_many = _trisort(
-            sorted(sideboards, key=lambda e: (e[2], e[0]))
+    try:
+        return _reference.write_deckstring(
+            sorted(merged.items()), heroes, format, checked_sideboards
         )
-        for group in (sb_ones, sb_twos):
-            write_varint(data, len(group))
-            for dbf_id, _, owner in group:
-                write_varint(data, dbf_id)
-                write_varint(data, owner)
-        write_varint(data, len(sb_many))
-        for dbf_id, count, owner in sb_many:
-            write_varint(data, dbf_id)
-            write_varint(data, count)
-            write_varint(data, owner)
-    else:
-        data.write(b"\0")
-
-    return base64.b64encode(data.getvalue()).decode("ascii")
+    except ValueError as exc:
+        raise DeckstringError(str(exc)) from exc
 
 
 def parse_deckstring(deckstring: str) -> ParsedDeck:
     """Decode a deckstring back into DBF ids, heroes and format."""
-    cleaned = "".join(deckstring.split())
+    cleaned = "".join(str(deckstring).split())
     if not cleaned:
         raise DeckstringError("empty deckstring")
     try:
-        decoded = base64.b64decode(cleaned, validate=True)
+        base64.b64decode(cleaned, validate=True)
     except (binascii.Error, ValueError) as exc:
         raise DeckstringError(f"not valid base64: {exc}") from exc
 
-    data = BytesIO(decoded)
-    if data.read(1) != b"\0":
-        raise DeckstringError("missing reserved leading byte")
-
     try:
-        version = read_varint(data)
-        if version != DECKSTRING_VERSION:
-            raise DeckstringError(f"unsupported deckstring version {version}")
-
-        raw_format = read_varint(data)
-        try:
-            format = FormatType(raw_format)
-        except ValueError as exc:
-            raise DeckstringError(f"unsupported format {raw_format}") from exc
-
-        heroes = [read_varint(data) for _ in range(read_varint(data))]
-
-        cards: list[tuple[int, int]] = []
-        for count in (1, 2):
-            for _ in range(read_varint(data)):
-                cards.append((read_varint(data), count))
-        for _ in range(read_varint(data)):
-            dbf_id = read_varint(data)
-            cards.append((dbf_id, read_varint(data)))
-
-        sideboards: list[tuple[int, int, int]] = []
-        marker = data.read(1)
-        if marker == b"\1":
-            for count in (1, 2):
-                for _ in range(read_varint(data)):
-                    sideboards.append((read_varint(data), count, read_varint(data)))
-            for _ in range(read_varint(data)):
-                dbf_id = read_varint(data)
-                sideboards.append((dbf_id, read_varint(data), read_varint(data)))
-    except EOFError as exc:
+        cards, heroes, format, sideboards = _reference.parse_deckstring(cleaned)
+    except ValueError as exc:
+        raise DeckstringError(str(exc)) from exc
+    except (EOFError, TypeError, IndexError) as exc:
+        # The reference reader signals a short buffer by failing to read a
+        # varint; the exact exception type is an implementation detail.
         raise DeckstringError(f"truncated deckstring: {exc}") from exc
 
-    heroes.sort()
-    cards.sort()
-    sideboards.sort(key=lambda e: (e[2], e[0]))
-    return ParsedDeck(cards=cards, heroes=heroes, format=format, sideboards=sideboards)
+    return ParsedDeck(
+        cards=sorted(cards),
+        heroes=sorted(heroes),
+        format=format,
+        sideboards=sorted(sideboards, key=lambda e: (e[2], e[0])),
+    )

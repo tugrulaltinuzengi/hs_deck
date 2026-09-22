@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 from .carddb import CardDB
 from .deck import Deck
-from .enums import CardClass
+from .enums import CardClass, class_label, format_label
 
 # Deck sizes the client accepts, and what unlocks each one.
 STANDARD_DECK_SIZE = 30
@@ -87,11 +87,11 @@ def validate(deck: Deck, db: CardDB) -> ValidationReport:
             )
         if not card.playable_by(deck.card_class):
             report.error(
-                f"{card.name} cannot be played by {deck.card_class.name.title()}"
+                f"{card.name} cannot be played by {class_label(deck.card_class)}"
             )
         if not card.legal_in(deck.format):
             report.error(
-                f"{card.name} is not legal in {deck.format.name.title()} "
+                f"{card.name} is not legal in {format_label(deck.format)} "
                 "(it has rotated to Wild)"
             )
 

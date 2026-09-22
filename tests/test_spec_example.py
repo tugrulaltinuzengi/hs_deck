@@ -47,7 +47,7 @@ def test_spec_list_is_nineteen_cards_not_twenty():
 )
 def test_invented_card_names(db: CardDB, name):
     """No card is spelled this way; the resolver either misses or substitutes."""
-    resolution = db.resolve(name, card_class=CardClass.PRIEST, format=FormatType.STANDARD)
+    resolution = db.resolve(name, card_class=CardClass.PRIEST, format=FormatType.FT_STANDARD)
     assert resolution.card is None or resolution.renamed
 
 
@@ -59,15 +59,15 @@ def test_reach_the_equilibrium_is_misnamed(db: CardDB):
     "name", ["Seek Guidance", "Hysteria", "Mass Dispel", "Azalina Soulthief"]
 )
 def test_cards_listed_as_standard_are_wild_only(db: CardDB, name):
-    card = db.resolve(name, format=FormatType.WILD).card
+    card = db.resolve(name, format=FormatType.FT_WILD).card
     assert card is not None
     assert not card.standard
-    assert not card.legal_in(FormatType.STANDARD)
+    assert not card.legal_in(FormatType.FT_STANDARD)
 
 
 def test_only_soulsever_makes_a_twenty_card_deck(db: CardDB):
     soulsever = db.resolve("Azalina Soulsever").card
-    soulthief = db.resolve("Azalina Soulthief", format=FormatType.WILD).card
+    soulthief = db.resolve("Azalina Soulthief", format=FormatType.FT_WILD).card
 
     assert db.deck_size_modifiers.get(soulsever.dbf) == 20
     assert soulthief.dbf not in db.deck_size_modifiers

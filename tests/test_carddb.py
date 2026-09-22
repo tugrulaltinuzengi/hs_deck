@@ -32,12 +32,12 @@ def test_resolves_a_name_with_a_dropped_article(db: CardDB):
 
 def test_prefers_the_legal_printing(db: CardDB):
     """'Azalina' is ambiguous; in Standard Priest it must mean Soulsever."""
-    resolution = db.resolve("Azalina", card_class=CardClass.PRIEST, format=FormatType.STANDARD)
+    resolution = db.resolve("Azalina", card_class=CardClass.PRIEST, format=FormatType.FT_STANDARD)
     assert resolution.card.name == "Azalina Soulsever"
     assert resolution.renamed
     assert any(c.name == "Azalina Soulthief" for c in resolution.candidates)
 
-    wild = db.resolve("Azalina Soulthief", format=FormatType.WILD)
+    wild = db.resolve("Azalina Soulthief", format=FormatType.FT_WILD)
     assert wild.card.name == "Azalina Soulthief"
 
 
@@ -50,7 +50,7 @@ def test_unknown_name_resolves_to_nothing(db: CardDB):
 
 
 def test_pool_is_class_and_format_filtered(db: CardDB):
-    pool = db.pool(CardClass.PRIEST, FormatType.STANDARD)
+    pool = db.pool(CardClass.PRIEST, FormatType.FT_STANDARD)
     assert pool
     for card in pool:
         assert card.standard
@@ -67,7 +67,7 @@ def test_copy_limits_follow_rarity(db: CardDB):
 
 
 def test_tag_search(db: CardDB):
-    imbue = db.search(card_class=CardClass.PRIEST, format=FormatType.STANDARD, tag="IMBUE")
+    imbue = db.search(card_class=CardClass.PRIEST, format=FormatType.FT_STANDARD, tag="IMBUE")
     names = {c.name for c in imbue}
     assert {"Lunarwing Messenger", "Kaldorei Priestess"} <= names
 

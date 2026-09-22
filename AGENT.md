@@ -34,7 +34,10 @@ clipboard.
    breakdown and the deck code block.
 
 Implemented by: `constraints.py`, `carddb.py` + `scoring.py`, `builder.py`,
-`deckstring.py`, `render.py`.
+`deckstring.py`, `render.py`. Blizzard's own data model — tag numbers, the
+Standard rotation, hero portraits, tribes, and the deckstring codec — is
+HearthSim's `python-hearthstone`, vendored under `hsdeck/_vendor` rather than
+restated.
 
 ---
 
@@ -105,9 +108,12 @@ Version 1, all integers unsigned LEB128 varints, the buffer base64'd:
 > Two corrections to the original section 4: the **hero-count varint** precedes
 > the hero id, and the **sideboard marker byte** is mandatory even when there is
 > no sideboard. A string missing either is rejected by the client. The original
-> also listed only three format values; Twist is `4`. Deck strings cannot be
-> approximated or "simulated" — `hsdeck` cross-checks its encoder byte-for-byte
-> against a reference implementation.
+> also listed only three format values; Twist is `4`.
+>
+> Deck strings cannot be approximated or "simulated". `hsdeck` does not
+> implement this layout at all — it calls HearthSim's reference codec, vendored
+> under `hsdeck/_vendor`, so its output is by construction what every
+> Hearthstone deck site produces.
 
 ---
 
