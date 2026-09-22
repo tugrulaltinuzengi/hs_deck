@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hsdeck"
+version = "0.1.0"
+description = "Constraint-driven Hearthstone deck construction with real deckstring encoding"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment",
+]
+dependencies = []
+
+[project.optional-dependencies]
+# Blizzard's CardDefs.xml, only needed to regenerate hsdeck/data/cards.json.gz.
+# The parser itself is vendored, so no code dependency is required.
+carddb = ["hearthstone-data"]
+# `hearthstone` is not needed to run hsdeck; the dev extra installs it only so
+# tests/test_vendor.py can check the vendored tree against the release.
+dev = ["pytest>=7", "hearthstone==9.21.0"]
+
+[project.scripts]
+hsdeck = "hsdeck.cli:main"
+
+[tool.setuptools]
+packages = [
+    "hsdeck",
+    "hsdeck._vendor",
+    "hsdeck._vendor.hearthstone",
+    "hsdeck._vendor.hearthstone.utils",
+]
+
+[tool.setuptools.package-data]
+hsdeck = ["data/*.json.gz"]
+"hsdeck._vendor" = ["README.md"]
+"hsdeck._vendor.hearthstone" = ["LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
