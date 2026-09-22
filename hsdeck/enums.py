@@ -8,7 +8,7 @@ the parsing and display helpers hsdeck needs on top.
 
 from __future__ import annotations
 
-from ._vendor.hearthstone.enums import (  # noqa: F401  (re-exported)
+from ._vendor.hearthstone.enums import (
     CardClass,
     CardSet,
     CardType,
@@ -20,6 +20,22 @@ from ._vendor.hearthstone.enums import (  # noqa: F401  (re-exported)
     ZodiacYear,
 )
 from ._vendor.hearthstone.utils import CARDRACE_TAG_MAP
+
+# Upstream enums are re-exported so callers import them from one place, and
+# hsdeck's own helpers sit alongside them.  Declared explicitly rather than
+# suppressed per-line: `# noqa` is a flake8 feature, while `__all__` is what
+# pyflakes itself honours.
+__all__ = [
+    # re-exported from the vendored HearthSim tree
+    "CardClass", "CardSet", "CardType", "FormatType", "GameTag", "Race",
+    "Rarity", "SpellSchool", "ZodiacYear",
+    # hsdeck's own
+    "MAX_COPIES_DEFAULT", "MAX_COPIES_LEGENDARY", "PLAYABLE_RACES",
+    "PLAYABLE_SPELL_SCHOOLS", "PLAYABLE_TYPES", "RACE_BY_NAME",
+    "SCHOOL_BY_NAME", "WILDCARD_RACE", "class_label", "format_label",
+    "is_standard", "max_copies", "parse_class", "parse_format", "race_label",
+    "school_label", "standard_sets",
+]
 
 # Card types that can sit in a constructed decklist.
 PLAYABLE_TYPES = frozenset(

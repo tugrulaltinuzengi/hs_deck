@@ -237,6 +237,10 @@ $ python -m pytest
 152 passed
 ```
 
+CI (`.github/workflows/ci.yml`) runs the suite on Python 3.10–3.13 and pyflakes
+over hsdeck's own modules — the vendored tree is upstream's code and is not
+linted here.
+
 Coverage includes varint characterisation, deckstring round-trips and rejection
 of malformed input, the vendored tree's provenance and drift, name resolution,
 constraint parsing of the brief's own case study, legal 30-card builds for all
