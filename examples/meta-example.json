@@ -1,0 +1,11 @@
+{
+  "_comment": "Optional winrate data. Keys may be DBF ids or card names. Each card contributes (winrate - baseline) * weight to its score.",
+  "baseline": 0.50,
+  "weight": 12.0,
+  "cards": {
+    "Specter Specialist": 0.556,
+    "Kaldorei Priestess": 0.541,
+    "117544": 0.528,
+    "Obsidian Statue": 0.492
+  }
+}
